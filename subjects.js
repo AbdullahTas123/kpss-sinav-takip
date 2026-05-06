@@ -2,7 +2,7 @@
 window.KPSS_SUBJECTS = {
   turkce: {
     name: "Türkçe",
-    color: "#60a5fa",
+    color: "#ef4444",
     fixedCount: 30,
     topics: [
       "Sözcükte Anlam",
@@ -20,7 +20,7 @@ window.KPSS_SUBJECTS = {
   },
   matematik: {
     name: "Matematik",
-    color: "#f59e0b",
+    color: "#60a5fa",
     fixedCount: 30,
     topics: [
       "Temel Kavramlar ve Sayılar",
@@ -41,7 +41,7 @@ window.KPSS_SUBJECTS = {
   },
   tarih: {
     name: "Tarih",
-    color: "#ef4444",
+    color: "#f59e0b",
     fixedCount: 27,
     topics: [
       "İslamiyet Öncesi Türk Tarihi",
