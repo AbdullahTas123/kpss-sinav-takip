@@ -1,0 +1,369 @@
+{
+    "type": "genel",
+    "date": "2026-04-29T10:00:00.000Z",
+    "name": "Yediiklim Türkiye Geneli - 1",
+    "durationMin": 130,
+    "subjects": {
+      "turkce": {
+        "correct": 24,
+        "wrong": 4,
+        "weakTopics":[
+          {
+            "topic": "Paragrafta Anlam",
+            "wrong": 2,
+            "blank": 1
+          },
+          {
+            "topic": "Sözcükte Yapı ve Ekler",
+            "wrong": 2,
+            "blank": 0
+          }
+        ]
+      },
+      "matematik": {
+        "correct": 21,
+        "wrong": 5,
+        "weakTopics":[
+          {
+            "topic": "Problemler",
+            "wrong": 3,
+            "blank": 1
+          },
+          {
+            "topic": "Sayısal Mantık",
+            "wrong": 2,
+            "blank": 0
+          }
+        ]
+      },
+      "tarih": {
+        "correct": 23,
+        "wrong": 3,
+        "weakTopics":[
+          {
+            "topic": "Çağdaş Türk ve Dünya Tarihi",
+            "wrong": 2,
+            "blank": 0
+          },
+          {
+            "topic": "Atatürk İlke ve İnkılapları",
+            "wrong": 1,
+            "blank": 1
+          }
+        ]
+      },
+      "cografya": {
+        "correct": 14,
+        "wrong": 3,
+        "weakTopics":[
+          {
+            "topic": "Türkiye'nin İklimi ve Bitki Örtüsü",
+            "wrong": 2,
+            "blank": 0
+          },
+          {
+            "topic": "Madenler ve Enerji Kaynakları",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      },
+      "vatandaslik": {
+        "correct": 12,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "Güncel Bilgiler",
+            "wrong": 1,
+            "blank": 1
+          },
+          {
+            "topic": "İdare Hukuku",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      }
+    },
+    "id": "e_1777408800000"
+  },
+  {
+    "type": "brans",
+    "date": "2026-04-30T14:30:00.000Z",
+    "name": "Pegem Türkçe Branş - 3",
+    "durationMin": 35,
+    "subject": "turkce",
+    "total": 30,
+    "correct": 26,
+    "wrong": 3,
+    "blank": 1,
+    "weakTopics":[
+      {
+        "topic": "Paragrafta Anlam",
+        "wrong": 2,
+        "blank": 0
+      },
+      {
+        "topic": "Yazım Kuralları",
+        "wrong": 1,
+        "blank": 0
+      },
+      {
+        "topic": "Sözel Mantık",
+        "wrong": 0,
+        "blank": 1
+      }
+    ],
+    "id": "e_1777511400000"
+  },
+  {
+    "type": "brans",
+    "date": "2026-05-01T09:15:00.000Z",
+    "name": "Benim Hocam Tarih Branş - 5",
+    "durationMin": 20,
+    "subject": "tarih",
+    "total": 27,
+    "correct": 23,
+    "wrong": 4,
+    "blank": 0,
+    "weakTopics":[
+      {
+        "topic": "Osmanlı Devleti Kültür ve Uygarlık",
+        "wrong": 2,
+        "blank": 0
+      },
+      {
+        "topic": "İlk Türk - İslam Devletleri",
+        "wrong": 1,
+        "blank": 0
+      },
+      {
+        "topic": "Kurtuluş Savaşı Cepheler ve Antlaşmalar",
+        "wrong": 1,
+        "blank": 0
+      }
+    ],
+    "id": "e_1777578900000"
+  },
+  {
+    "type": "genel",
+    "date": "2026-05-02T10:00:00.000Z",
+    "name": "Pegem Türkiye Geneli - 2",
+    "durationMin": 128,
+    "subjects": {
+      "turkce": {
+        "correct": 26,
+        "wrong": 3,
+        "weakTopics":[
+          {
+            "topic": "Cümlede Anlam",
+            "wrong": 1,
+            "blank": 0
+          },
+          {
+            "topic": "Sözel Mantık",
+            "wrong": 2,
+            "blank": 1
+          }
+        ]
+      },
+      "matematik": {
+        "correct": 23,
+        "wrong": 3,
+        "weakTopics":[
+          {
+            "topic": "Olasılık / Permütasyon / Kombinasyon",
+            "wrong": 2,
+            "blank": 1
+          },
+          {
+            "topic": "Geometri",
+            "wrong": 1,
+            "blank": 2
+          }
+        ]
+      },
+      "tarih": {
+        "correct": 24,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "Kurtuluş Savaşı Cepheler ve Antlaşmalar",
+            "wrong": 2,
+            "blank": 0
+          }
+        ]
+      },
+      "cografya": {
+        "correct": 16,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "Türkiye'de Nüfus ve Yerleşme",
+            "wrong": 1,
+            "blank": 0
+          },
+          {
+            "topic": "Türkiye'de Tarım ve Hayvancılık",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      },
+      "vatandaslik": {
+        "correct": 11,
+        "wrong": 3,
+        "weakTopics":[
+          {
+            "topic": "Yasama",
+            "wrong": 2,
+            "blank": 0
+          },
+          {
+            "topic": "Yargı",
+            "wrong": 1,
+            "blank": 1
+          }
+        ]
+      }
+    },
+    "id": "e_1777668000000"
+  },
+  {
+    "type": "brans",
+    "date": "2026-05-03T15:00:00.000Z",
+    "name": "Yargı Coğrafya Branş - 2",
+    "durationMin": 15,
+    "subject": "cografya",
+    "total": 18,
+    "correct": 16,
+    "wrong": 2,
+    "blank": 0,
+    "weakTopics":[
+      {
+        "topic": "Türkiye'de Sanayi",
+        "wrong": 1,
+        "blank": 0
+      },
+      {
+        "topic": "Türkiye'de Ulaşım, Ticaret ve Turizm",
+        "wrong": 1,
+        "blank": 0
+      }
+    ],
+    "id": "e_1777772400000"
+  },
+  {
+    "type": "brans",
+    "date": "2026-05-04T10:30:00.000Z",
+    "name": "Hoca Webde Matematik Branş - 4",
+    "durationMin": 40,
+    "subject": "matematik",
+    "total": 30,
+    "correct": 24,
+    "wrong": 4,
+    "blank": 2,
+    "weakTopics":[
+      {
+        "topic": "Problemler",
+        "wrong": 2,
+        "blank": 0
+      },
+      {
+        "topic": "Çarpanlara Ayırma",
+        "wrong": 1,
+        "blank": 1
+      },
+      {
+        "topic": "Köklü Sayılar",
+        "wrong": 1,
+        "blank": 0
+      },
+      {
+        "topic": "Geometri",
+        "wrong": 0,
+        "blank": 1
+      }
+    ],
+    "id": "e_1777840200000"
+  },
+  {
+    "type": "genel",
+    "date": "2026-05-05T10:00:00.000Z",
+    "name": "Lider TG - 3",
+    "durationMin": 125,
+    "subjects": {
+      "turkce": {
+        "correct": 27,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "Noktalama İşaretleri",
+            "wrong": 1,
+            "blank": 0
+          },
+          {
+            "topic": "Paragrafta Anlam",
+            "wrong": 1,
+            "blank": 1
+          }
+        ]
+      },
+      "matematik": {
+        "correct": 25,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "Problemler",
+            "wrong": 1,
+            "blank": 2
+          },
+          {
+            "topic": "Temel Kavramlar ve Sayılar",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      },
+      "tarih": {
+        "correct": 25,
+        "wrong": 2,
+        "weakTopics":[
+          {
+            "topic": "20. Yüzyılda Osmanlı Devleti",
+            "wrong": 1,
+            "blank": 0
+          },
+          {
+            "topic": "Osmanlı Devleti Siyasi Tarihi",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      },
+      "cografya": {
+        "correct": 17,
+        "wrong": 1,
+        "weakTopics":[
+          {
+            "topic": "Türkiye'nin Coğrafi Konumu",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      },
+      "vatandaslik": {
+        "correct": 14,
+        "wrong": 1,
+        "weakTopics":[
+          {
+            "topic": "Güncel Bilgiler",
+            "wrong": 1,
+            "blank": 0
+          }
+        ]
+      }
+    },
+    "id": "e_1777927200000"
+  }
+}
