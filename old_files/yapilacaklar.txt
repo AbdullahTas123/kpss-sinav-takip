@@ -1,0 +1,152 @@
+🧠 Şu anki sistemin sınırları
+
+Şu an hızlı gidiyorsun çünkü:
+
+setup yok
+tooling yok
+build yok
+
+Ama büyüdükçe şu problemler başlayacak:
+
+❗ 1. Global namespace karmaşası
+
+Şu an:
+
+window.KPSS_EXAMS
+window.KPSS_DASHBOARD
+
+Bir noktadan sonra:
+
+import/export eksikliği
+dependency takibi zorlaşır
+❗ 2. Dosya bağımlılık sırası
+
+Şu an HTML içinde sırayla yüklüyorsun:
+
+<script src="store.js"></script>
+<script type="text/babel" src="ui.jsx"></script>
+
+Bu ölçeklenmez.
+
+❗ 3. Browser Babel
+
+Kod browser’da compile oluyor.
+
+Projede:
+
+component sayısı
+chart sayısı
+logic
+
+artınca hissedilir yavaşlar.
+
+❗ 4. Refactor zorlaşır
+
+Şu an:
+
+gerçek module system yok
+tooling yok
+linting yok
+⚡ BENCE EN DOĞRU ZAMAN
+
+👉 Tam şu an.
+
+Çünkü:
+
+app çalışıyor
+mantık oturmuş
+ama henüz aşırı büyük değil
+🎯 Sana önerim
+❌ Next.js’e geçme
+
+Gereksiz.
+
+✅ Vite + React geç
+
+En mantıklısı.
+
+İdeal setup
+Katman	Teknoloji
+Bundler	Vite
+UI	React
+Routing	React Router
+State	mevcut mini-store devam edebilir
+Styling	mevcut inline devam edebilir
+Charts	mevcut SVG devam
+🧠 En önemli nokta
+
+Migration:
+👉 “rewrite” olmamalı
+👉 “structure migration” olmalı
+
+Yani:
+
+mantığı değiştirme
+sadece yapıyı modernize et
+
+
+""" ilk 2 adım yapıldı şu anda. eski dosyalar @old_files klasörü içinde kpss takip html dosyası index.html olarak ismi değişti.
+1. proje oluştur 
+Terminal:
+npm create vite@latest .
+
+Seç:
+React
+JavaScript
+
+2. Install (biz zaten klasör içinde olcaz.)
+npm install
+"""
+
+
+3. Şu yapıya geç
+src/
+  components/
+  pages/
+  store/
+  utils/
+4. app.jsx → App.jsx
+
+Mesela:
+
+src/App.jsx
+5. window.* kaldır
+
+Şu:
+
+window.KPSS_DASHBOARD
+
+yerine:
+
+export default Dashboard
+
+ve:
+
+import Dashboard from "./pages/Dashboard"
+6. index.html sadeleşir
+
+Şu karmaşa gider:
+
+<script ...>
+7. main.jsx oluşur
+import React from "react"
+import ReactDOM from "react-dom/client"
+import App from "./App"
+8. Deploy kolaylaşır
+
+Sonra:
+
+Vercel direkt çalışır
+GitHub Pages daha temiz olur
+build optimize olur
+⚠️ Ama şunu yapma
+
+Migration sırasında:
+
+feature ekleme
+redesign
+state rewrite
+
+yapma.
+
+Yoksa proje dağılır.

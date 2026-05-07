@@ -257,33 +257,6 @@ State şekli:
 
 ## 📅 Geliştirme Günlüğü
 
-### 2026-05-07 (ek 6) — Vite + React yapısına yapı taşıması
-
-Eski "tek HTML + Babel Standalone in-browser compile" yaklaşımı, Vite tabanlı klasik React projesine taşındı. Mantık değişmedi — sadece yapı modernize edildi (bkz. `old_files/yapilacaklar.txt`).
-
-**Yapılan değişiklikler:**
-- `npm create vite@latest .` (React + JavaScript) ile Vite + React 19 ortamı kuruldu, eski dosyaların hepsi `old_files/` altına taşındı (güvende kalsınlar diye).
-- Klasör yapısı: `src/{components,pages,store,utils,hooks}` — `yapilacaklar.txt`'de önerilen şema.
-- **`window.KPSS_*` global namespace pattern kaldırıldı.** Tüm dosyalar ES module `import`/`export` kullanıyor:
-  - `subjects.js` → `src/utils/subjects.js` (`KPSS_SUBJECTS`, `KPSS_EXAM_DATE`, `KPSS_APPLY_DATE_*`)
-  - `store.js` → `src/store/store.js` (default export `kpssStore`; window'a yine eklenir ki devtools console'dan `kpssStore.reset()` çağrılabilsin)
-  - `ui.jsx` → `src/components/ui.jsx` (`Card`, `Button`, `Input`, `Select`, `Label`, `Chip`, `Tabs`, `Icon`, `ConfirmModal`, tarih helper'ları)
-  - `shell.jsx` → `src/components/shell.jsx` + `src/hooks/useViewport.js`
-  - `exam-chart.jsx` → `src/components/ExamChart.jsx`
-  - `dashboard/questions/exams/topics/pomodoro.jsx` → `src/pages/Dashboard.jsx` vb.
-  - `usePersistentState` → `src/hooks/usePersistentState.js`
-  - `app.jsx` → `src/App.jsx`
-- Hook alias workaround'ları (`useStateApp`, `useStateShell`, `useMemoDash`, vb.) kaldırıldı — her dosyanın kendi modül scope'u olduğu için artık `useState`/`useEffect` direkt import edilebiliyor.
-- `KPSS Sınav Takip.html` (33 script tag'iyle) → `index.html` (sadece `<script type="module" src="/src/main.jsx">`); Inter fontu ve global stiller `src/index.css`'e taşındı.
-- Vite default `App.css`/`assets/` dosyaları temizlendi.
-- `weak-topics.jsx` kasıtlı olarak taşınmadı (önceki turda kaldırılmıştı).
-
-**Sonuç:**
-- `npm run build`: 28 modül, 348 kB (gzip 96 kB), 93ms — başarılı.
-- `npm run dev`: 142ms'de hazır, `http://localhost:5173`.
-- Hızlı dev experience (hot module reload), Vercel deploy için optimize bundle, ileride routing/state library/test entegrasyonu kolay.
-- Tüm kullanıcı verisi `localStorage` anahtarı `kpss-takip-store-v1`'de korundu — eski sürümden migrasyona ihtiyaç yok.
-
 ### 2026-05-05 — Soru Çözümü yeniden tasarımı + Pomodoro + Responsive Dashboard
 
 **1) Soru Çözümü sayfası, Deneme Sınavları paterniyle yeniden organize edildi:**

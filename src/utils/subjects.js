@@ -1,0 +1,93 @@
+// KPSS Lisans GY-GK ders ve konu listesi
+export const KPSS_SUBJECTS = {
+  turkce: {
+    name: "Türkçe",
+    color: "#ef4444",
+    fixedCount: 30,
+    topics: [
+      "Sözcükte Anlam",
+      "Cümlede Anlam",
+      "Paragrafta Anlam",
+      "Sözcük Türleri",
+      "Sözcükte Yapı ve Ekler",
+      "Cümlenin Ögeleri",
+      "Ses Bilgisi",
+      "Yazım Kuralları",
+      "Noktalama İşaretleri",
+      "Anlatım Bozuklukları",
+      "Sözel Mantık",
+    ],
+  },
+  matematik: {
+    name: "Matematik",
+    color: "#60a5fa",
+    fixedCount: 30,
+    topics: [
+      "Temel Kavramlar ve Sayılar",
+      "Rasyonel ve Ondalık Sayılar",
+      "Basit Eşitsizlikler",
+      "Mutlak Değer",
+      "Üslü Sayılar",
+      "Köklü Sayılar",
+      "Çarpanlara Ayırma",
+      "Denklem Çözme / Oran - Orantı",
+      "Problemler",
+      "Kümeler",
+      "Fonksiyonlar / İşlem",
+      "Olasılık / Permütasyon / Kombinasyon",
+      "Sayısal Mantık",
+      "Geometri",
+    ],
+  },
+  tarih: {
+    name: "Tarih",
+    color: "#f59e0b",
+    fixedCount: 27,
+    topics: [
+      "İslamiyet Öncesi Türk Tarihi",
+      "İlk Türk - İslam Devletleri",
+      "Osmanlı Devleti Siyasi Tarihi",
+      "Osmanlı Devleti Kültür ve Uygarlık",
+      "20. Yüzyılda Osmanlı Devleti",
+      "Kurtuluş Savaşı Hazırlık Dönemi",
+      "Kurtuluş Savaşı Cepheler ve Antlaşmalar",
+      "Atatürk İlke ve İnkılapları",
+      "Atatürk Dönemi İç ve Dış Politika",
+      "Çağdaş Türk ve Dünya Tarihi",
+    ],
+  },
+  cografya: {
+    name: "Coğrafya",
+    color: "#10b981",
+    fixedCount: 18,
+    topics: [
+      "Türkiye'nin Coğrafi Konumu",
+      "Türkiye'nin Fiziki Coğrafyası",
+      "Türkiye'nin İklimi ve Bitki Örtüsü",
+      "Türkiye'de Nüfus ve Yerleşme",
+      "Türkiye'de Tarım ve Hayvancılık",
+      "Madenler ve Enerji Kaynakları",
+      "Türkiye'de Sanayi",
+      "Türkiye'de Ulaşım, Ticaret ve Turizm",
+    ],
+  },
+  vatandaslik: {
+    name: "Vatandaşlık",
+    color: "#a78bfa",
+    fixedCount: 15,
+    topics: [
+      "Hukukun Temel Kavramları",
+      "Anayasa Hukuku ve Türk Anayasa Tarihi",
+      "1982 Anayasası Temel İlkeleri ve Temel Haklar",
+      "Yasama",
+      "Yürütme",
+      "Yargı",
+      "İdare Hukuku",
+      "Güncel Bilgiler",
+    ],
+  },
+};
+
+export const KPSS_EXAM_DATE = "2026-09-06T10:00:00";
+export const KPSS_APPLY_DATE_START = "2026-07-01";
+export const KPSS_APPLY_DATE_END = "2026-07-13";
