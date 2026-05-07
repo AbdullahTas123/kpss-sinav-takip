@@ -54,9 +54,9 @@ function QuestionsPage() {
             Çözdüğün her konu testini buraya kaydet — anında ders/konu bazlı analiz görürsün.
           </p>
         </div>
-        <Button onClick={openAdd}>
+        {/* <Button onClick={openAdd}>
           <Icon name="plus" size={14} color="#04140e" /> Soru Çözümü Ekle
-        </Button>
+        </Button> */}
       </div>
 
       {/* Mini-stats: 3 kart */}

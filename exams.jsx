@@ -48,9 +48,9 @@ function ExamsPage() {
             Genel ve branş denemelerini takip et, eksiklerini gör.
           </p>
         </div>
-        <Button onClick={openAdd}>
+        {/* <Button onClick={openAdd}>
           <Icon name="plus" size={14} color="#04140e" /> Deneme Ekle
-        </Button>
+        </Button> */}
       </div>
 
       {/* Summary mini-stats */}
@@ -97,13 +97,6 @@ function ExamsPage() {
             <span style={{ fontSize: 11, color: "#52525b" }}>({filteredExams.length})</span>
           </div>
 
-            {/* Inline add button — kayıtların başında, tekrar yukarı çıkmak gerekmesin diye */}
-          <div style={{ display: "flex", justifyContent: "center", borderBottom: "1px dashed #1f1f23" }}>
-            <Button onClick={openAdd}>
-              <Icon name="plus" size={14} color="#04140e" /> Deneme Ekle
-            </Button>
-          </div>
-
           <Tabs
             value={filterType}
             onChange={setFilterType}
@@ -113,6 +106,13 @@ function ExamsPage() {
               { value: "brans", label: "Branş" },
             ]}
           />
+
+          {/* Inline add button — kayıtların başında, tekrar yukarı çıkmak gerekmesin diye */}
+          <div style={{ display: "flex", justifyContent: "center", borderBottom: "1px dashed #1f1f23" }}>
+            <Button onClick={openAdd}>
+              <Icon name="plus" size={14} color="#04140e" /> Deneme Ekle
+            </Button>
+          </div>
         </div>
 
         {filteredExams.length === 0 ? (
