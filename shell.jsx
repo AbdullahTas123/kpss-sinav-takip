@@ -266,7 +266,7 @@ function Topbar({ examDate, applyDateStart, applyDateEnd, onMenu }) {
           <div>
             <div style={{ fontSize: 13, color: "#71717a" }}>KPSS Analiz ve Takip</div>
             <div style={{ fontSize: 11, color: "#52525b", marginTop: 2 }}>
-              Notion tarzı zarif takip · Tüm veriler tarayıcına kaydedilir
+              Sık sık verilerinizi yedeklemeyi (dışa aktarmayı) unutmayın
             </div>
           </div>
         )}
