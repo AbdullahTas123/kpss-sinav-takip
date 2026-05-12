@@ -33,7 +33,7 @@ function normalizeTopicStatus(raw) {
 // perSubject boş kalan derslerde dashboard'da fixedCount oranıyla otomatik dağıtılır (UI tarafında).
 // targetDurationMin yalnızca Genel deneme için (branş'a uygulanmaz).
 function defaultGoals() {
-  return { targetNet: 90, perSubject: {}, targetDurationMin: 130 };
+  return { targetNet: 90, perSubject: {}, targetDurationMin: 130, perSubjectDuration: {} };
 }
 function normalizeGoals(raw) {
   if (!raw || typeof raw !== "object") return defaultGoals();
@@ -54,7 +54,14 @@ function normalizeGoals(raw) {
     // Hiç tanımlanmamış (eski snapshot) → varsayılan 130 dk
     targetDurationMin = 130;
   }
-  return { targetNet, perSubject, targetDurationMin };
+  const perSubjectDuration = {};
+  if (raw.perSubjectDuration && typeof raw.perSubjectDuration === "object") {
+    for (const k of Object.keys(raw.perSubjectDuration)) {
+      const v = Number(raw.perSubjectDuration[k]);
+      if (Number.isFinite(v) && v > 0) perSubjectDuration[k] = v;
+    }
+  }
+  return { targetNet, perSubject, targetDurationMin, perSubjectDuration };
 }
 
 function normalizePlaylists(raw) {
@@ -268,6 +275,11 @@ const kpssStore = {
     } else {
       next.perSubject = cur.perSubject || {};
     }
+    if (patch && patch.perSubjectDuration !== undefined) {
+      next.perSubjectDuration = { ...(cur.perSubjectDuration || {}), ...patch.perSubjectDuration };
+    } else {
+      next.perSubjectDuration = cur.perSubjectDuration || {};
+    }
     state.goals = normalizeGoals(next);
     save();
   },
@@ -342,6 +354,26 @@ const kpssStore = {
       reader.onerror = () => reject(new Error("Dosya okunamadı."));
       reader.readAsText(file);
     });
+  },
+  importData(data) {
+    if (!data || !Array.isArray(data.questions) || !Array.isArray(data.exams)) {
+      throw new Error("Geçersiz yedek dosyası.");
+    }
+    state = migrateState({
+      questions: data.questions,
+      exams: data.exams,
+      topicStatus: data.topicStatus || {},
+      playlists: data.playlists || [],
+      goals: data.goals || undefined,
+    });
+    save();
+    const topicCount = Object.values(state.topicStatus).reduce((s, m) => s + Object.keys(m).length, 0);
+    return {
+      questions: state.questions.length,
+      exams: state.exams.length,
+      topics: topicCount,
+      playlists: state.playlists.length,
+    };
   },
 };
 

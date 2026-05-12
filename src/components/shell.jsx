@@ -1,6 +1,7 @@
 // AppShell: Sidebar + Topbar + Countdown (responsive)
 import { useState, useEffect, useRef } from "react";
-import { Icon, formatRange } from "./ui";
+import { createPortal } from "react-dom";
+import { Icon, ConfirmModal, formatRange } from "./ui";
 import { useViewport } from "../hooks/useViewport";
 import kpssStore from "../store/store";
 
@@ -156,16 +157,36 @@ export function Sidebar({ active, onNav, mobileOpen, setMobileOpen }) {
 function DataActions() {
   const fileRef = useRef(null);
   const [msg, setMsg] = useState("");
+  const [resetPending, setResetPending] = useState(false);
+  const [exportPending, setExportPending] = useState(false);
+  const [importPending, setImportPending] = useState(null); // { parsedData, preview }
 
-  const onImport = async (e) => {
+  const onFileSelect = async (e) => {
     const f = e.target.files[0];
+    e.target.value = "";
     if (!f) return;
-    if (!confirm("Mevcut tüm verilerin yedekteki verilerle değiştirilecek. Devam edilsin mi?")) {
-      e.target.value = "";
-      return;
-    }
     try {
-      const r = await kpssStore.importJSON(f);
+      const text = await f.text();
+      const data = JSON.parse(text);
+      if (!data || !Array.isArray(data.questions) || !Array.isArray(data.exams)) {
+        throw new Error("Geçersiz yedek dosyası.");
+      }
+      const topicCount = Object.values(data.topicStatus || {}).reduce(
+        (s, m) => s + Object.keys(m).length, 0
+      );
+      const parts = [`${data.questions.length} soru çözümü`, `${data.exams.length} deneme`];
+      if (topicCount) parts.push(`${topicCount} konu`);
+      if (data.playlists?.length) parts.push(`${data.playlists.length} liste`);
+      setImportPending({ parsedData: data, preview: parts.join(", ") });
+    } catch (err) {
+      setMsg("✗ " + err.message);
+      setTimeout(() => setMsg(""), 3000);
+    }
+  };
+
+  const onConfirmImport = () => {
+    try {
+      const r = kpssStore.importData(importPending.parsedData);
       const parts = [`${r.questions} soru`, `${r.exams} deneme`];
       if (r.topics) parts.push(`${r.topics} konu`);
       if (r.playlists) parts.push(`${r.playlists} liste`);
@@ -173,8 +194,15 @@ function DataActions() {
     } catch (err) {
       setMsg("✗ " + err.message);
     }
+    setImportPending(null);
     setTimeout(() => setMsg(""), 3000);
-    e.target.value = "";
+  };
+
+  const onConfirmReset = () => {
+    kpssStore.clear();
+    setResetPending(false);
+    setMsg("✓ Tüm veriler silindi");
+    setTimeout(() => setMsg(""), 3000);
   };
 
   const btn = {
@@ -185,24 +213,64 @@ function DataActions() {
     fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
     transition: "all 0.15s",
   };
+  const dangerBtn = {
+    ...btn,
+    color: "#ef4444",
+    border: "1px solid #3b1d1e",
+    background: "#1a0c0e",
+  };
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ fontSize: 10, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, padding: "0 4px" }}>
         Veri Yedekleme
       </div>
       <div style={{ display: "flex", gap: 6 }}>
-        <button style={btn} onClick={() => kpssStore.exportJSON()} title="JSON olarak indir">
+        <button style={btn} onClick={() => setExportPending(true)} title="JSON olarak indir">
           <Icon name="trend" size={12} /> Dışa Aktar
         </button>
         <button style={btn} onClick={() => fileRef.current.click()} title="JSON yedeği yükle">
           <Icon name="plus" size={12} /> İçe Aktar
         </button>
-        <input ref={fileRef} type="file" accept="application/json,.json" onChange={onImport} style={{ display: "none" }} />
+        <button style={dangerBtn} onClick={() => setResetPending(true)} title="Tüm verileri sil">
+          <Icon name="trash" size={12} color="#ef4444" /> Sıfırla
+        </button>
+        <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFileSelect} style={{ display: "none" }} />
       </div>
       {msg && (
         <div style={{ fontSize: 10.5, color: msg.startsWith("✓") ? "#10b981" : "#ef4444", marginTop: 6, padding: "0 4px" }}>
           {msg}
         </div>
+      )}
+      {exportPending && createPortal(
+        <ConfirmModal
+          title="Verileri dışa aktar?"
+          message="Tüm verileriniz JSON formatında bilgisayarınıza indirilecek."
+          confirmLabel="Dışa Aktar"
+          onConfirm={() => { kpssStore.exportJSON(); setExportPending(false); }}
+          onCancel={() => setExportPending(false)}
+        />,
+        document.body
+      )}
+      {importPending && createPortal(
+        <ConfirmModal
+          title="Verileri içe aktar?"
+          message={`${importPending.preview} yüklenecek. Mevcut tüm verilerinizin üzerine yazılacak.`}
+          confirmLabel="İçe Aktar"
+          onConfirm={onConfirmImport}
+          onCancel={() => setImportPending(null)}
+        />,
+        document.body
+      )}
+      {resetPending && createPortal(
+        <ConfirmModal
+          title="Tüm veriler silinsin mi?"
+          message="Soru çözümleri, denemeler, konu durumları ve tüm kayıtlar kalıcı olarak silinecek. Geri alınamaz."
+          confirmLabel="Sıfırla"
+          danger
+          onConfirm={onConfirmReset}
+          onCancel={() => setResetPending(false)}
+        />,
+        document.body
       )}
     </div>
   );

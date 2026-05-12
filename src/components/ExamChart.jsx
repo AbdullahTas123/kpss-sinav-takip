@@ -64,25 +64,33 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
 
   // compute series
   const series = useMemo(() => {
+    // Branş: her ders kendi son N denemesini bağımsız al; chart'ta sağa hizalı, gap olmaz
+    if (isBrans) {
+      const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : null;
+      const cutoff = days !== null ? Date.now() - days * 86400000 : null;
+      return subjectKeys
+        .filter((sk) => enabled[sk])
+        .map((sk) => {
+          const subj = SUBJ[sk];
+          let exams = sourceExams.filter((e) => e.subject === sk);
+          if (range === "last10") exams = exams.slice(-10);
+          else exams = exams.filter((e) => new Date(e.date).getTime() >= cutoff);
+          return {
+            key: sk,
+            color: subj.color,
+            label: subj.name,
+            points: exams.map((e) => ({
+              date: e.date,
+              value: metric === "duration" ? (e.durationMin || 0) : calcNet(e.correct, e.wrong),
+              exam: e,
+            })),
+          };
+        });
+    }
+
     if (filtered.length === 0) return [];
 
     if (metric === "duration") {
-      if (isBrans) {
-        return subjectKeys
-          .filter((sk) => enabled[sk])
-          .map((sk) => {
-            const subj = SUBJ[sk];
-            return {
-              key: sk,
-              color: subj.color,
-              label: subj.name,
-              points: filtered.map((e) => {
-                if (e.subject !== sk) return { date: e.date, value: null, exam: e };
-                return { date: e.date, value: e.durationMin || 0, exam: e };
-              }),
-            };
-          });
-      }
       return [{
         key: "duration",
         color: "#06b6d4",
@@ -91,7 +99,7 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
       }];
     }
 
-    if (!isBrans && mode === "total") {
+    if (mode === "total") {
       return [{
         key: "total",
         color: "#10b981",
@@ -107,7 +115,7 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
       }];
     }
 
-    // Ders bazında — Genel: her dersin her denemedeki neti; Branş: yalnızca o derse ait branş denemelerinin neti, diğerlerinde value=null (gap)
+    // Genel + ders bazında
     return subjectKeys
       .filter((sk) => enabled[sk])
       .map((sk) => {
@@ -117,84 +125,129 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
           color: subj.color,
           label: subj.name,
           points: filtered.map((e) => {
-            if (isBrans) {
-              if (e.subject !== sk) return { date: e.date, value: null, exam: e };
-              return { date: e.date, value: calcNet(e.correct, e.wrong), exam: e };
-            }
             const s = e.subjects[sk];
             const n = s ? calcNet(s.correct, s.wrong) : 0;
             return { date: e.date, value: n, exam: e };
           }),
         };
       });
-  }, [filtered, mode, metric, enabled, isBrans]);
+  }, [filtered, mode, metric, enabled, isBrans, range, sourceExams]);
+
+  // Branş'ta her ders kendi serisi, chartLen = en uzun seri (sağa hizalı). Genel'de filtered.length.
+  const chartLen = isBrans
+    ? Math.max(0, ...series.map((s) => s.points.length))
+    : filtered.length;
 
   const yMax = useMemo(() => {
     if (metric === "duration") {
-      const relevant = isBrans ? filtered.filter((e) => enabled[e.subject]) : filtered;
-      // Hedef süre yalnızca Genel deneme grafiğinde geçerli — yMax onu da kapsasın ki
-      // tüm denemeler hedef sürenin altındayken bile çizgi görünsün.
+      const relevant = isBrans ? series.flatMap((s) => s.points.map((p) => p.exam)) : filtered;
       const td = !isBrans ? (Number(goals && goals.targetDurationMin) || 0) : 0;
-      const m = Math.max(60, td, ...relevant.map((e) => e.durationMin || 0));
-      return Math.ceil(m / 30) * 30;
+      let bransTgt = 0;
+      if (isBrans && goals) {
+        const ps = goals.perSubjectDuration || {};
+        const totalFixed = subjectKeys.reduce((s, k) => s + SUBJ[k].fixedCount, 0);
+        const gtd = Number(goals.targetDurationMin) || 0;
+        for (const sk of subjectKeys) {
+          if (!enabled[sk]) continue;
+          const ex = ps[sk];
+          const t = (Number.isFinite(Number(ex)) && Number(ex) > 0)
+            ? Number(ex)
+            : (gtd > 0 && totalFixed > 0 ? (gtd * SUBJ[sk].fixedCount) / totalFixed : 0);
+          if (t > bransTgt) bransTgt = t;
+        }
+      }
+      const vals = relevant.map((e) => e.durationMin || 0);
+      const m = Math.max(30, td, bransTgt, ...(vals.length > 0 ? vals : [0]));
+      const step = m > 120 ? 30 : m > 60 ? 20 : 10;
+      return Math.ceil(m / step) * step;
     }
     if (!isBrans && mode === "total") return 120;
     // subjects: max fixed count among enabled (Branş'ta da aynı: en yüksek fixedCount = 30)
     let m = 0;
     for (const sk of subjectKeys) if (enabled[sk]) m = Math.max(m, SUBJ[sk].fixedCount);
     return m || 30;
-  }, [mode, metric, enabled, filtered, isBrans, goals]);
+  }, [mode, metric, enabled, filtered, isBrans, goals, series]);
 
   const toX = (i, len) => padL + (len <= 1 ? innerW / 2 : (i * innerW) / (len - 1));
   const toY = (v) => padT + innerH - (v / yMax) * innerH;
 
   // ticks
   const yTicks = metric === "duration"
-    ? [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax].map((v) => Math.round(v))
+    ? (() => {
+        const step = yMax > 120 ? 30 : yMax > 60 ? 20 : 10;
+        const ticks = [];
+        for (let v = 0; v <= yMax; v += step) ticks.push(v);
+        return ticks;
+      })()
     : (mode === "total" ? [0, 30, 60, 90, 120] : [0, Math.round(yMax / 4), Math.round(yMax / 2), Math.round((3 * yMax) / 4), yMax]);
 
-  const xLabelEvery = filtered.length <= 6 ? 1 : Math.ceil(filtered.length / 6);
+  const xLabelEvery = chartLen <= 6 ? 1 : Math.ceil(chartLen / 6);
 
   const onSvgMove = (ev) => {
-    if (filtered.length === 0) return;
+    if (chartLen === 0) return;
     const rect = ev.currentTarget.getBoundingClientRect();
     const x = ((ev.clientX - rect.left) / rect.width) * W;
     const rel = Math.max(0, Math.min(innerW, x - padL));
-    const idx = filtered.length === 1 ? 0 : Math.round((rel / innerW) * (filtered.length - 1));
+    const idx = chartLen === 1 ? 0 : Math.round((rel / innerW) * (chartLen - 1));
     setHoverIdx(idx);
   };
   const onSvgLeave = () => setHoverIdx(null);
 
-  const hoveredExam = hoverIdx !== null ? filtered[hoverIdx] : null;
+  // Branş: hover slot'unda hangi serilerin noktası var → topla. Sağa hizalı: n noktalı seri slot (chartLen-n)..(chartLen-1) aralığında.
+  const hoveredItems = (() => {
+    if (hoverIdx === null || !isBrans) return null;
+    return series
+      .map((s) => {
+        const si = hoverIdx + s.points.length - chartLen;
+        if (si < 0 || si >= s.points.length) return null;
+        const p = s.points[si];
+        return { sk: s.key, subj: SUBJ[s.key], exam: p.exam, value: p.value, color: s.color };
+      })
+      .filter(Boolean);
+  })();
 
-  // tooltip content
-  const tooltipContent = hoveredExam
-    ? (() => {
-        if (isBrans) {
-          const subj = SUBJ[hoveredExam.subject];
-          const net = calcNet(hoveredExam.correct, hoveredExam.wrong);
-          return {
-            isBrans: true,
-            exam: hoveredExam,
-            subj,
-            correct: hoveredExam.correct,
-            wrong: hoveredExam.wrong,
-            blank: hoveredExam.blank,
-            net,
-            total: hoveredExam.total || (subj ? subj.fixedCount : 0),
-          };
-        }
-        const items = subjectKeys.map((sk) => {
-          const s = hoveredExam.subjects[sk];
-          const subj = SUBJ[sk];
-          const n = s ? calcNet(s.correct, s.wrong) : 0;
-          return { sk, subj, c: s ? s.correct : 0, w: s ? s.wrong : 0, n };
-        });
-        let totalNet = 0;
-        items.forEach((it) => (totalNet += it.n));
-        return { items, totalNet, exam: hoveredExam };
-      })()
-    : null;
+  // tooltipData: kind = "brans-single" | "brans-multi" | "genel-duration" | "genel-net"
+  const tooltipData = (() => {
+    if (hoverIdx === null) return null;
+
+    if (isBrans) {
+      if (!hoveredItems || hoveredItems.length === 0) return null;
+      const enabledCount = subjectKeys.filter((sk) => enabled[sk]).length;
+      // Tek ders açık → tarih + detay; çoklu → tarih yok, sadece slot'taki ders bilgileri
+      if (enabledCount === 1 && hoveredItems.length === 1) {
+        const h = hoveredItems[0];
+        const exam = h.exam;
+        return {
+          kind: "brans-single",
+          exam,
+          subj: h.subj,
+          metric,
+          correct: exam.correct,
+          wrong: exam.wrong,
+          blank: exam.blank,
+          net: calcNet(exam.correct, exam.wrong),
+          total: exam.total || h.subj.fixedCount,
+        };
+      }
+      return { kind: "brans-multi", items: hoveredItems, metric };
+    }
+
+    const exam = filtered[hoverIdx];
+    if (!exam) return null;
+
+    if (metric === "duration") {
+      return { kind: "genel-duration", exam };
+    }
+    const items = subjectKeys.map((sk) => {
+      const s = exam.subjects[sk];
+      const subj = SUBJ[sk];
+      const n = s ? calcNet(s.correct, s.wrong) : 0;
+      return { sk, subj, c: s ? s.correct : 0, w: s ? s.wrong : 0, n };
+    });
+    let totalNet = 0;
+    items.forEach((it) => (totalNet += it.n));
+    return { kind: "genel-net", exam, items, totalNet };
+  })();
 
   // toggle helpers
   const toggleAll = (on) => {
@@ -323,7 +376,7 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
 
       {/* Chart */}
       <div style={{ position: "relative" }}>
-        {filtered.length === 0 ? (
+        {chartLen === 0 ? (
           <div style={{ height: H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#52525b", fontSize: 13, gap: 8 }}>
             <Icon name="trend" size={28} color="#3f3f46" />
             Bu aralıkta deneme bulunamadı
@@ -341,7 +394,7 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
               const rect = ev.currentTarget.getBoundingClientRect();
               const x = ((t.clientX - rect.left) / rect.width) * W;
               const rel = Math.max(0, Math.min(innerW, x - padL));
-              const idx = filtered.length === 1 ? 0 : Math.round((rel / innerW) * (filtered.length - 1));
+              const idx = chartLen === 1 ? 0 : Math.round((rel / innerW) * (chartLen - 1));
               setHoverIdx(idx);
             }}
             onTouchEnd={onSvgLeave}
@@ -371,9 +424,33 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
             {(() => {
               if (!goals) return null;
 
-              // SÜRE MODU — yalnızca Genel deneme grafiğinde (branş'ta uygulanmaz)
+              // SÜRE MODU
               if (metric === "duration") {
-                if (isBrans) return null;
+                if (isBrans) {
+                  // Branş: her açık ders için ders rengiyle hedef süre çizgisi
+                  const ps = goals.perSubjectDuration || {};
+                  const totalFixed = subjectKeys.reduce((s, k) => s + SUBJ[k].fixedCount, 0);
+                  const gtd = Number(goals.targetDurationMin) || 0;
+                  return subjectKeys.map((sk) => {
+                    if (!enabled[sk]) return null;
+                    const ex = ps[sk];
+                    const t = (Number.isFinite(Number(ex)) && Number(ex) > 0)
+                      ? Number(ex)
+                      : (gtd > 0 && totalFixed > 0 ? (gtd * SUBJ[sk].fixedCount) / totalFixed : 0);
+                    if (t <= 0 || t > yMax) return null;
+                    const y = toY(t);
+                    const color = SUBJ[sk].color;
+                    return (
+                      <g key={"tgt-dur-" + sk}>
+                        <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={color} strokeWidth="1.5" strokeDasharray="6 4" opacity="0.7" />
+                        <text x={W - padR - 4} y={y - 3} fontSize="9.5" fill={color} textAnchor="end" fontWeight="600" opacity="0.9">
+                          {SUBJ[sk].name.slice(0, 4)} {Math.round(t)} dk
+                        </text>
+                      </g>
+                    );
+                  });
+                }
+                // Genel: toplam hedef süre
                 const td = Number(goals.targetDurationMin) || 0;
                 if (td <= 0 || td > yMax) return null;
                 const y = toY(td);
@@ -433,9 +510,9 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
             {/* hover vertical line */}
             {hoverIdx !== null && (
               <line
-                x1={toX(hoverIdx, filtered.length)}
+                x1={toX(hoverIdx, chartLen)}
                 y1={padT}
-                x2={toX(hoverIdx, filtered.length)}
+                x2={toX(hoverIdx, chartLen)}
                 y2={padT + innerH}
                 stroke="#27272a"
                 strokeDasharray="3 3"
@@ -453,11 +530,18 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
             {/* lines (null değerli noktalarda çizgi kırılır) */}
             {series.map((s) => {
               if (s.points.length === 0) return null;
+              // Branş'ta sağa hizalı: n noktalı seri chart sonuna yapışır → slot (chartLen-n)..(chartLen-1)
+              const xOf = isBrans
+                ? (i) => toX(chartLen - s.points.length + i, chartLen)
+                : (i) => toX(i, s.points.length);
+              const isHov = isBrans
+                ? (i) => hoverIdx !== null && i === hoverIdx + s.points.length - chartLen
+                : (i) => hoverIdx === i;
               let path = "";
               let pen = false;
               s.points.forEach((p, i) => {
                 if (p.value === null || p.value === undefined) { pen = false; return; }
-                const x = toX(i, s.points.length);
+                const x = xOf(i);
                 const y = toY(p.value);
                 path += `${pen ? "L" : "M"}${x},${y} `;
                 pen = true;
@@ -469,15 +553,16 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
                   )}
                   {s.points.map((p, i) => {
                     if (p.value === null || p.value === undefined) return null;
+                    const hov = isHov(i);
                     return (
                       <circle
                         key={i}
-                        cx={toX(i, s.points.length)}
+                        cx={xOf(i)}
                         cy={toY(p.value)}
-                        r={hoverIdx === i ? 5 : 3.5}
+                        r={hov ? 5 : 3.5}
                         fill="#0a0a0c"
                         stroke={s.color}
-                        strokeWidth={hoverIdx === i ? 2.5 : 2}
+                        strokeWidth={hov ? 2.5 : 2}
                       />
                     );
                   })}
@@ -485,28 +570,31 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
               );
             })}
 
-            {/* x labels */}
-            {filtered.map((e, i) => {
-              if (i % xLabelEvery !== 0 && i !== filtered.length - 1) return null;
-              return (
-                <text
-                  key={i}
-                  x={toX(i, filtered.length)}
-                  y={H - 14}
-                  fontSize="10"
-                  fill="#71717a"
-                  textAnchor="middle"
-                >
-                  {fmtDateShort(e.date)}
-                </text>
-              );
-            })}
+            {/* x labels — Branş veya last10: ordinal (1., 2., ..., N.); diğer aralıklarda tarih */}
+            {(isBrans || range === "last10")
+              ? Array.from({ length: chartLen }, (_, i) => {
+                  if (i % xLabelEvery !== 0 && i !== chartLen - 1) return null;
+                  return (
+                    <text key={i} x={toX(i, chartLen)} y={H - 14} fontSize="10" fill="#3f3f46" textAnchor="middle">
+                      {i + 1}.
+                    </text>
+                  );
+                })
+              : filtered.map((e, i) => {
+                  if (i % xLabelEvery !== 0 && i !== filtered.length - 1) return null;
+                  return (
+                    <text key={i} x={toX(i, filtered.length)} y={H - 14} fontSize="10" fill="#71717a" textAnchor="middle">
+                      {fmtDateShort(e.date)}
+                    </text>
+                  );
+                })
+            }
           </svg>
         )}
 
         {/* Tooltip */}
-        {hoveredExam && tooltipContent && (() => {
-          const x = toX(hoverIdx, filtered.length);
+        {tooltipData && (() => {
+          const x = toX(hoverIdx, chartLen);
           const xPct = (x / W) * 100;
           const onRight = xPct > 60;
           return (
@@ -527,26 +615,26 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
                 fontSize: 12,
               }}
             >
-              <div style={{ fontSize: 11, color: "#71717a", marginBottom: 2 }}>{fmtDate(tooltipContent.exam.date)}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", marginBottom: 8 }}>
-                {tooltipContent.exam.name || (isBrans && tooltipContent.subj ? tooltipContent.subj.name + " Branş" : "Genel Deneme")}
-              </div>
-              {tooltipContent.isBrans ? (
+              {tooltipData.kind === "brans-single" && (
                 <>
+                  <div style={{ fontSize: 11, color: "#71717a", marginBottom: 2 }}>{fmtDate(tooltipData.exam.date)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", marginBottom: 8 }}>
+                    {tooltipData.exam.name || (tooltipData.subj.name + " Branş")}
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: tooltipContent.subj.color }} />
-                    <span style={{ fontSize: 11, color: tooltipContent.subj.color, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {tooltipContent.subj.name}
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: tooltipData.subj.color }} />
+                    <span style={{ fontSize: 11, color: tooltipData.subj.color, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {tooltipData.subj.name}
                     </span>
-                    {metric !== "duration" && (
-                      <span style={{ marginLeft: "auto", fontSize: 11, color: "#52525b" }}>{tooltipContent.total} soru</span>
+                    {tooltipData.metric !== "duration" && (
+                      <span style={{ marginLeft: "auto", fontSize: 11, color: "#52525b" }}>{tooltipData.total} soru</span>
                     )}
                   </div>
-                  {metric === "duration" ? (
+                  {tooltipData.metric === "duration" ? (
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                       <span style={{ color: "#06b6d4" }}>Süre</span>
                       <span style={{ fontVariantNumeric: "tabular-nums", color: "#e4e4e7", fontWeight: 600 }}>
-                        {tooltipContent.exam.durationMin || 0} dk
+                        {tooltipData.exam.durationMin || 0} dk
                       </span>
                     </div>
                   ) : (
@@ -554,43 +642,78 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
                       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                           <span style={{ color: "#71717a" }}>Doğru</span>
-                          <span style={{ color: "#10b981", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipContent.correct}</span>
+                          <span style={{ color: "#10b981", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipData.correct}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                           <span style={{ color: "#71717a" }}>Yanlış</span>
-                          <span style={{ color: "#ef4444", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipContent.wrong}</span>
+                          <span style={{ color: "#ef4444", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipData.wrong}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
                           <span style={{ color: "#71717a" }}>Boş</span>
-                          <span style={{ color: "#a1a1aa", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipContent.blank}</span>
+                          <span style={{ color: "#a1a1aa", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{tooltipData.blank}</span>
                         </div>
                       </div>
                       <div style={{ borderTop: "1px solid #1f1f23", margin: "8px 0", paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
                         <span style={{ color: "#71717a", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>Net</span>
-                        <span style={{ color: tooltipContent.subj.color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                          {round2(tooltipContent.net)}
+                        <span style={{ color: tooltipData.subj.color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                          {round2(tooltipData.net)}
                         </span>
                       </div>
-                      {tooltipContent.exam.durationMin && (
+                      {tooltipData.exam.durationMin && (
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#71717a" }}>
                           <span>Süre</span>
-                          <span style={{ fontVariantNumeric: "tabular-nums" }}>{tooltipContent.exam.durationMin} dk</span>
+                          <span style={{ fontVariantNumeric: "tabular-nums" }}>{tooltipData.exam.durationMin} dk</span>
                         </div>
                       )}
                     </>
                   )}
                 </>
-              ) : metric === "duration" ? (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                  <span style={{ color: "#06b6d4" }}>Süre</span>
-                  <span style={{ fontVariantNumeric: "tabular-nums", color: "#e4e4e7", fontWeight: 600 }}>
-                    {tooltipContent.exam.durationMin || 0} dk
-                  </span>
-                </div>
-              ) : (
+              )}
+
+              {tooltipData.kind === "brans-multi" && (
                 <>
+                  <div style={{ fontSize: 11, color: "#71717a", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                    {hoverIdx + 1}. Deneme
+                  </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {tooltipContent.items.map((it) => (
+                    {tooltipData.items.map((it) => (
+                      <div key={it.sk} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: it.color }} />
+                          <span style={{ color: "#a1a1aa" }}>{it.subj.name}</span>
+                        </span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", color: it.color, fontWeight: 600 }}>
+                          {tooltipData.metric === "duration" ? `${it.value} dk` : round2(it.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {tooltipData.kind === "genel-duration" && (
+                <>
+                  <div style={{ fontSize: 11, color: "#71717a", marginBottom: 2 }}>{fmtDate(tooltipData.exam.date)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", marginBottom: 8 }}>
+                    {tooltipData.exam.name || "Genel Deneme"}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                    <span style={{ color: "#06b6d4" }}>Süre</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums", color: "#e4e4e7", fontWeight: 600 }}>
+                      {tooltipData.exam.durationMin || 0} dk
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {tooltipData.kind === "genel-net" && (
+                <>
+                  <div style={{ fontSize: 11, color: "#71717a", marginBottom: 2 }}>{fmtDate(tooltipData.exam.date)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", marginBottom: 8 }}>
+                    {tooltipData.exam.name || "Genel Deneme"}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {tooltipData.items.map((it) => (
                       <div key={it.sk} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ width: 6, height: 6, borderRadius: "50%", background: it.subj.color }} />
@@ -605,13 +728,13 @@ function ExamChart({ exams, isMobile, kind = "genel", goals }) {
                   <div style={{ borderTop: "1px solid #1f1f23", margin: "8px 0", paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
                     <span style={{ color: "#71717a", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>Toplam Net</span>
                     <span style={{ color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                      {round2(tooltipContent.totalNet)}
+                      {round2(tooltipData.totalNet)}
                     </span>
                   </div>
-                  {tooltipContent.exam.durationMin && (
+                  {tooltipData.exam.durationMin && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#71717a" }}>
                       <span>Süre</span>
-                      <span style={{ fontVariantNumeric: "tabular-nums" }}>{tooltipContent.exam.durationMin} dk</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>{tooltipData.exam.durationMin} dk</span>
                     </div>
                   )}
                 </>

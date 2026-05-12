@@ -55,7 +55,11 @@ function ExamsPage() {
 
   const filteredExams = useMemo(() => {
     const list = filterType === "all" ? state.exams : state.exams.filter((e) => e.type === filterType);
-    return [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
+    return [...list].sort((a, b) => {
+      const da = trDateKey(a.date), db = trDateKey(b.date);
+      if (da !== db) return da < db ? 1 : -1;
+      return a.id < b.id ? 1 : -1;
+    });
   }, [state.exams, filterType]);
 
   const editingExam = editingId ? state.exams.find((e) => e.id === editingId) : null;
@@ -519,7 +523,7 @@ function ExamModal({ existing, onClose }) {
   const onSave = () => {
     setGlobalError("");
     // Düzenleme: aynı gün kalıyorsa orijinal timestamp korunur (sıralama bozulmasın); aksi halde Türkiye öğlenine sabitle.
-    const newIso = trMakeIso(date);
+    const newIso = trToday() === date ? new Date().toISOString() : trMakeIso(date);
     const baseDate = existing && trDateKey(existing.date) === date ? existing.date : newIso;
     const dur = duration ? parseInt(duration) : null;
 

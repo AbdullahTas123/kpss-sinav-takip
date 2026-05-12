@@ -58,7 +58,11 @@ function QuestionsPage() {
   }, [state.questions]);
 
   const sortedQuestions = useMemo(
-    () => [...state.questions].sort((a, b) => new Date(b.date) - new Date(a.date)),
+    () => [...state.questions].sort((a, b) => {
+      const da = trDateKey(a.date), db = trDateKey(b.date);
+      if (da !== db) return da < db ? 1 : -1;
+      return a.id < b.id ? 1 : -1;
+    }),
     [state.questions]
   );
 
@@ -728,7 +732,7 @@ function QuestionModal({ existing, onClose }) {
     if (overflow) return setError(`Doğru + Yanlış (${sum}), Toplam (${totalN}) sayısını geçemez!`);
     if (correctN < 0 || wrongN < 0) return setError("Negatif değer girilemez.");
 
-    const newIso = trMakeIso(date);
+    const newIso = trToday() === date ? new Date().toISOString() : trMakeIso(date);
     const finalDate = existing && trDateKey(existing.date) === date ? existing.date : newIso;
     const payload = {
       date: finalDate,

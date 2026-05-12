@@ -357,6 +357,7 @@ function TargetCard({ goals, onEdit, isMobile }) {
   const totalFixed = subjectKeys.reduce((s, k) => s + SUBJ[k].fixedCount, 0); // 120
 
   // perSubject boş kalan dersler için fixedCount oranıyla otomatik dağıt
+  const totalDur = goals.targetDurationMin || 0;
   const perSubjDisplay = subjectKeys.map((sk) => {
     const fixed = SUBJ[sk].fixedCount;
     const explicit = goals.perSubject && goals.perSubject[sk];
@@ -364,7 +365,12 @@ function TargetCard({ goals, onEdit, isMobile }) {
       ? Number(explicit)
       : (totalFixed > 0 ? (targetNet * fixed) / totalFixed : 0);
     const isAuto = !(explicit !== undefined && explicit !== null && Number.isFinite(Number(explicit)));
-    return { sk, name: SUBJ[sk].name, color: SUBJ[sk].color, fixed, value, isAuto };
+    const explicitDur = goals.perSubjectDuration && goals.perSubjectDuration[sk];
+    const durValue = (explicitDur !== undefined && explicitDur !== null && Number.isFinite(Number(explicitDur)) && Number(explicitDur) > 0)
+      ? Number(explicitDur)
+      : (totalDur > 0 && totalFixed > 0 ? (totalDur * fixed) / totalFixed : 0);
+    const isDurAuto = !(explicitDur !== undefined && explicitDur !== null && Number.isFinite(Number(explicitDur)) && Number(explicitDur) > 0);
+    return { sk, name: SUBJ[sk].name, color: SUBJ[sk].color, fixed, value, isAuto, durValue, isDurAuto };
   });
 
   return (
@@ -451,10 +457,18 @@ function TargetCard({ goals, onEdit, isMobile }) {
               </span>
               <span style={{ fontSize: 10, color: "#52525b", fontVariantNumeric: "tabular-nums" }}>/ {s.fixed}</span>
             </div>
-            <span style={{ fontSize: 13, color: s.color, fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
-              {Math.round(s.value * 10) / 10}
-              {s.isAuto && <span style={{ fontSize: 9, color: "#52525b", fontWeight: 400, marginLeft: 4 }}>otomatik</span>}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 13, color: s.color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {Math.round(s.value * 10) / 10}
+                {s.isAuto && <span style={{ fontSize: 9, color: "#52525b", fontWeight: 400, marginLeft: 4 }}>oto</span>}
+              </span>
+              {totalDur > 0 && (
+                <span style={{ fontSize: 11, color: "#71717a", fontVariantNumeric: "tabular-nums" }}>
+                  {Math.round(s.durValue)} dk
+                  {s.isDurAuto && <span style={{ fontSize: 9, color: "#52525b", marginLeft: 2 }}>oto</span>}
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -482,6 +496,14 @@ function TargetModal({ goals, onClose }) {
     for (const sk of subjectKeys) {
       const v = goals.perSubject ? goals.perSubject[sk] : undefined;
       o[sk] = (v !== undefined && v !== null && Number.isFinite(Number(v))) ? String(v) : "";
+    }
+    return o;
+  });
+  const [perSubjDuration, setPerSubjDuration] = useState(() => {
+    const o = {};
+    for (const sk of subjectKeys) {
+      const v = goals.perSubjectDuration ? goals.perSubjectDuration[sk] : undefined;
+      o[sk] = (v !== undefined && v !== null && Number.isFinite(Number(v)) && Number(v) > 0) ? String(v) : "";
     }
     return o;
   });
@@ -519,6 +541,23 @@ function TargetModal({ goals, onClose }) {
     setPerSubj(next);
   };
 
+  const distributeDuration = () => {
+    const durN = parseFloat(duration);
+    if (!Number.isFinite(durN) || durN <= 0) return;
+    const next = {};
+    for (const sk of subjectKeys) {
+      const v = totalFixed > 0 ? Math.round((durN * SUBJ[sk].fixedCount / totalFixed) * 10) / 10 : 0;
+      next[sk] = String(v);
+    }
+    setPerSubjDuration(next);
+  };
+
+  const clearDuration = () => {
+    const next = {};
+    for (const sk of subjectKeys) next[sk] = "";
+    setPerSubjDuration(next);
+  };
+
   const save = () => {
     setError("");
     if (!Number.isFinite(targetN) || targetN < 0 || targetN > 120) {
@@ -545,14 +584,20 @@ function TargetModal({ goals, onClose }) {
       durationVal = d;
     }
     const out = {};
-    for (let i = 0; i < subjectKeys.length; i++) {
-      const sk = subjectKeys[i];
+    for (const sk of subjectKeys) {
       const raw = perSubj[sk];
       if (raw === "" || raw === null || raw === undefined) continue;
       const v = parseFloat(raw);
       if (Number.isFinite(v) && v >= 0) out[sk] = v;
     }
-    kpssStore.setGoals({ targetNet: targetN, perSubject: out, targetDurationMin: durationVal });
+    const durOut = {};
+    for (const sk of subjectKeys) {
+      const raw = perSubjDuration[sk];
+      if (raw === "" || raw === null || raw === undefined) continue;
+      const v = parseFloat(raw);
+      if (Number.isFinite(v) && v > 0) durOut[sk] = v;
+    }
+    kpssStore.setGoals({ targetNet: targetN, perSubject: out, targetDurationMin: durationVal, perSubjectDuration: durOut });
     onClose();
   };
 
@@ -617,27 +662,22 @@ function TargetModal({ goals, onClose }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <Label style={{ marginBottom: 0 }}>Ders Bazında Hedefler <span style={{ color: "#52525b" }}>(opsiyonel)</span></Label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={distribute}
-                style={{ background: "transparent", border: "1px solid #27272a", borderRadius: 6, padding: "4px 9px", color: "#a1a1aa", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
-                type="button"
-              >
-                Otomatik dağıt
-              </button>
-              <button
-                onClick={clearPerSubj}
-                style={{ background: "transparent", border: "1px solid #27272a", borderRadius: 6, padding: "4px 9px", color: "#a1a1aa", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
-                type="button"
-              >
-                Temizle
-              </button>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Label style={{ marginBottom: 0 }}>Ders Bazında Hedefler <span style={{ color: "#52525b" }}>(opsiyonel)</span></Label>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 10.5, color: "#71717a" }}>Net:</span>
+              <button onClick={distribute} style={smallBtn} type="button">Dağıt</button>
+              <button onClick={clearPerSubj} style={smallBtn} type="button">Temizle</button>
+              <span style={{ width: 1, background: "#27272a", alignSelf: "stretch", flexShrink: 0 }} />
+              <span style={{ fontSize: 10.5, color: "#71717a" }}>Süre:</span>
+              <button onClick={distributeDuration} style={smallBtn} type="button">Dağıt</button>
+              <button onClick={clearDuration} style={smallBtn} type="button">Temizle</button>
             </div>
           </div>
           <p style={{ fontSize: 11.5, color: "#52525b", margin: "0 0 12px 0", lineHeight: 1.4 }}>
-            Boş bıraktıklarında soru sayısı oranıyla otomatik dağıtılır.
+            Boş bıraktıklarında net/süre, soru sayısı oranıyla otomatik dağıtılır.
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -661,28 +701,26 @@ function TargetModal({ goals, onClose }) {
                     <div style={{ fontSize: 13, color: "#fafafa", fontWeight: 500 }}>{s.name}</div>
                     <div style={{ fontSize: 10.5, color: "#52525b", fontVariantNumeric: "tabular-nums" }}>Toplam {s.fixedCount} soru</div>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max={s.fixedCount}
-                    step="0.5"
-                    value={perSubj[sk]}
-                    onChange={(e) => setPerSubj({ ...perSubj, [sk]: e.target.value })}
-                    placeholder="—"
-                    style={{
-                      width: 80,
-                      background: "#0c0c0e",
-                      border: "1px solid #27272a",
-                      borderRadius: 6,
-                      color: "#e4e4e7",
-                      padding: "6px 8px",
-                      fontSize: 13,
-                      fontFamily: "inherit",
-                      outline: "none",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Net</span>
+                    <input
+                      type="number" min="0" max={s.fixedCount} step="0.5"
+                      value={perSubj[sk]}
+                      onChange={(e) => setPerSubj({ ...perSubj, [sk]: e.target.value })}
+                      placeholder="—"
+                      style={modalNumInput}
+                    />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Süre dk</span>
+                    <input
+                      type="number" min="0" max="600" step="1"
+                      value={perSubjDuration[sk]}
+                      onChange={(e) => setPerSubjDuration({ ...perSubjDuration, [sk]: e.target.value })}
+                      placeholder="—"
+                      style={modalNumInput}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -1099,5 +1137,16 @@ function ProgressLine({ label, done, total, pct, color, muted, mutedExtra, style
     </div>
   );
 }
+
+const smallBtn = {
+  background: "transparent", border: "1px solid #27272a", borderRadius: 6,
+  padding: "4px 9px", color: "#a1a1aa", fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+};
+const modalNumInput = {
+  width: 70,
+  background: "#0c0c0e", border: "1px solid #27272a", borderRadius: 6,
+  color: "#e4e4e7", padding: "6px 6px", fontSize: 13, fontFamily: "inherit",
+  outline: "none", textAlign: "center", fontVariantNumeric: "tabular-nums",
+};
 
 export default Dashboard;

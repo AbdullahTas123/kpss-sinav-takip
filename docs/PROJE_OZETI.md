@@ -757,3 +757,18 @@ Tüm field-level mutation'lar zaten yeni array/obje üretiyor (`[...arr]`, `{...
 
 ### 2026-05-07 (öncesi) — Strateji belgesi: Danışman 3 değerlendirmesi
 İki danışman görüşü (`docs/danisman1.md`, `docs/danisman2.md`) ve mevcut kod birleştirilerek `docs/son_durum.md` yazıldı: dürüst eleştiri (kopyalar, yanlış öncelikler), her sayfanın net rolü, kullanıcı akışı diyagramı, P0/P1/P2 öncelik listesi. Kod değişikliği yok; sadece strateji.
+
+---
+
+### 2026-05-12 — Branş ExamChart: Son 10 modunda genel-mod ile aynı x ekseni mantığı
+
+Önceki round'larda branş + son 10 deneme için eklenen "her ders kendi son 10'unu bağımsız al + sağa hizalı 10 slot" özel durumu, çoklu ders açıkken çakışan x-skalaları yüzünden hover tooltip'inin bazı serilerde gözükmemesine yol açıyordu. Genel deneme grafiğindeki sade mantığa hizalandı:
+
+- `series` useMemo'sundaki `isBrans && range === "last10"` özel case'i kaldırıldı; branş tüm range'lerde (7d/30d/90d/last10) aynı gap-based seri üretimini kullanıyor.
+- `chartLen` her zaman `filtered.length` (genel ile aynı). Sağa-hizalı 10-slotluk özel x ekseni kaldırıldı.
+- `hoveredExam` doğrudan `filtered[hoverIdx]` — her slotta tek bir deneme paylaşılıyor, tüm seriler bu slot için aynı tooltip'i tetikliyor.
+- Çizgi/nokta çiziminde `xOf`/`isHov` yardımcıları kaldırıldı; klasik `toX(i, s.points.length)` ve `hoverIdx === i` kullanılıyor.
+- X-ekseni etiketi: tek bir `filtered.map` döngüsünde, range last10 ise sıra numarası (`1.`, `2.`, …), değilse `fmtDateShort` gösterilir.
+- yMax/yTicks süre adımları (step-based: ≤60→10, 60<m≤120→20, m>120→30) korundu — taban değer 30 dk.
+
+**Etkilenen dosyalar:** [src/components/ExamChart.jsx](src/components/ExamChart.jsx)

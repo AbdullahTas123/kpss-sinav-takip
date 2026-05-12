@@ -11,16 +11,26 @@ function PomodoroPage() {
   const { isMobile, isTablet } = useViewport();
 
   const MODES = {
-    pomodoro: { label: "Kısa Pomodoro", short: "Çalışma",   duration: 25 * 60, color: "#10b981", kind: "work" },
-    short:    { label: "Kısa Mola", short: "Kısa Mola", duration:  5 * 60, color: "#10b981", kind: "rest" },
-    extended: { label: "Uzun Pomodoro",     short: "Uzun Çalışma", duration: 50 * 60, color: "#a78bfa", kind: "work" },
-    long:     { label: "Uzun Mola", short: "Uzun Mola", duration: 10 * 60, color: "#a78bfa", kind: "rest" },
+    pomodoro:  { label: "Kısa Pomodoro", short: "Çalışma",      duration: 25 * 60, color: "#10b981", kind: "work"      },
+    short:     { label: "Kısa Mola",     short: "Kısa Mola",    duration:  5 * 60, color: "#10b981", kind: "rest"      },
+    extended:  { label: "Uzun Pomodoro", short: "Uzun Çalışma", duration: 50 * 60, color: "#a78bfa", kind: "work"      },
+    long:      { label: "Uzun Mola",     short: "Uzun Mola",    duration: 10 * 60, color: "#a78bfa", kind: "rest"      },
+    custom:    { label: "Özel Sayaç",    short: "Özel",          duration: null,    color: "#f59e0b", kind: "custom"    },
+    stopwatch: { label: "Kronometre",    short: "Krono",         duration: 0,       color: "#06b6d4", kind: "stopwatch" },
   };
 
   const [mode, setMode] = usePersistentState("pomodoro.mode", "pomodoro");
-  const [timeLeft, setTimeLeft] = useState(() => (MODES[mode] || MODES.pomodoro).duration);
+  const [customMins, setCustomMins] = usePersistentState("pomodoro.customMins", 30);
+  const [customSecs, setCustomSecs] = usePersistentState("pomodoro.customSecs", 0);
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const m = MODES[mode] || MODES.pomodoro;
+    if (m.kind === "stopwatch") return 0;
+    if (m.kind === "custom") return customMins * 60 + customSecs;
+    return m.duration;
+  });
   const [isRunning, setIsRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
+  const [flashDone, setFlashDone] = useState(false);
 
   // Mola sonrası dönülecek son çalışma modu — pomodoro mu uzun mu seçtiyse onu hatırla.
   const lastWorkRef = useRef(MODES[mode]?.kind === "work" ? mode : "pomodoro");
@@ -33,30 +43,38 @@ function PomodoroPage() {
 
   // Reset when mode changes manually
   useEffect(() => {
-    setTimeLeft((MODES[mode] || MODES.pomodoro).duration);
+    if (mode === "stopwatch") setTimeLeft(0);
+    else if (mode === "custom") setTimeLeft(customMins * 60 + customSecs);
+    else setTimeLeft((MODES[mode] || MODES.pomodoro).duration);
     setIsRunning(false);
-  }, [mode]);
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tick
   useEffect(() => {
     if (!isRunning) return;
     const id = setInterval(() => {
+      if (mode === "stopwatch") { setTimeLeft((t) => t + 1); return; }
       setTimeLeft((t) => {
         if (t <= 1) {
-          playBeep();
-          setIsRunning(false);
-          const cur = MODES[mode];
-          if (cur && cur.kind === "work") {
-            setCompleted((c) => {
-              const nextCount = c + 1;
-              const next = mode === "extended" ? "long" : (nextCount % 4 === 0 ? "long" : "short");
-              setTimeout(() => setMode(next), 200);
-              return nextCount;
-            });
+          if (mode === "custom") {
+            setFlashDone(true);
+            setTimeout(() => setFlashDone(false), 1000);
           } else {
-            // Mola bitti → son çalışma moduna dön
-            setTimeout(() => setMode(lastWorkRef.current || "pomodoro"), 200);
+            playBeep();
+            const cur = MODES[mode];
+            if (cur && cur.kind === "work") {
+              setCompleted((c) => {
+                const nextCount = c + 1;
+                const next = mode === "extended" ? "long" : (nextCount % 4 === 0 ? "long" : "short");
+                setTimeout(() => setMode(next), 200);
+                return nextCount;
+              });
+            } else {
+              // Mola bitti → son çalışma moduna dön
+              setTimeout(() => setMode(lastWorkRef.current || "pomodoro"), 200);
+            }
           }
+          setIsRunning(false);
           return 0;
         }
         return t - 1;
@@ -64,6 +82,11 @@ function PomodoroPage() {
     }, 1000);
     return () => clearInterval(id);
   }, [isRunning, mode]);
+
+  // Özel sayaç dk/sn değişince (çalışmıyorsa) timeLeft güncelle
+  useEffect(() => {
+    if (mode === "custom" && !isRunning) setTimeLeft(customMins * 60 + customSecs);
+  }, [customMins, customSecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update document title with countdown
   useEffect(() => {
@@ -76,14 +99,23 @@ function PomodoroPage() {
   }, [timeLeft, isRunning, mode]);
 
   const cur = MODES[mode] || MODES.pomodoro;
-  const progress = 1 - timeLeft / cur.duration;
+  const customDuration = customMins * 60 + customSecs;
+  let progress;
+  if (mode === "stopwatch") progress = (timeLeft % 60) / 60;
+  else if (mode === "custom") progress = customDuration > 0 ? 1 - timeLeft / customDuration : 0;
+  else progress = 1 - timeLeft / cur.duration;
 
   const onToggle = () => setIsRunning((r) => !r);
-  const onReset = () => { setTimeLeft(cur.duration); setIsRunning(false); };
+  const onReset = () => {
+    if (mode === "stopwatch") setTimeLeft(0);
+    else if (mode === "custom") setTimeLeft(customDuration);
+    else setTimeLeft(cur.duration);
+    setIsRunning(false);
+  };
   const onSkip = () => { setTimeLeft(0); };
 
-  // Mode tab grid: mobil 2x2, tablet 2x2, desktop 4 kol
-  const modeCols = isMobile ? "1fr 1fr" : isTablet ? "1fr 1fr" : "repeat(4, 1fr)";
+  // Mode tab grid: mobil 2 kol (3 satır), tablet/desktop 3 kol (2 satır)
+  const modeCols = isMobile ? "1fr 1fr" : "repeat(3, 1fr)";
 
   return (
     <div style={{ padding: isMobile ? "20px 16px 60px 16px" : "28px 32px 64px 32px", maxWidth: 720, margin: "0 auto" }}>
@@ -123,7 +155,7 @@ function PomodoroPage() {
             >
               <span>{m.label}</span>
               <span style={{ fontSize: isMobile ? 10 : 10.5, color: active ? m.color : "#52525b", fontVariantNumeric: "tabular-nums" }}>
-                {Math.floor(m.duration / 60)} dk
+                {m.kind === "custom" ? `${customMins}:${String(customSecs).padStart(2, "0")}` : m.kind === "stopwatch" ? "∞" : `${Math.floor(m.duration / 60)} dk`}
               </span>
             </button>
           );
@@ -142,6 +174,14 @@ function PomodoroPage() {
             pointerEvents: "none",
           }}
         />
+        {flashDone && (
+          <div style={{
+            position: "absolute", inset: 0,
+            background: `${cur.color}30`,
+            pointerEvents: "none",
+            zIndex: 10,
+          }} />
+        )}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: isMobile ? 18 : 24, position: "relative" }}>
           <ProgressRing
             value={progress}
@@ -151,6 +191,32 @@ function PomodoroPage() {
             label={formatTime(timeLeft)}
             sublabel={cur.short.toUpperCase()}
           />
+
+          {mode === "custom" && !isRunning && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: -8 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number" min={0} max={99}
+                  value={customMins}
+                  onChange={(e) => setCustomMins(Math.max(0, Math.min(99, parseInt(e.target.value) || 0)))}
+                  onFocus={(e) => e.target.select()}
+                  style={customInputStyle}
+                />
+                <span style={{ fontSize: 10.5, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em" }}>dk</span>
+              </div>
+              <span style={{ fontSize: 26, color: "#52525b", marginBottom: 18, fontWeight: 700 }}>:</span>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number" min={0} max={59}
+                  value={customSecs}
+                  onChange={(e) => setCustomSecs(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                  onFocus={(e) => e.target.select()}
+                  style={customInputStyle}
+                />
+                <span style={{ fontSize: 10.5, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em" }}>sn</span>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
             <button
@@ -179,7 +245,7 @@ function PomodoroPage() {
             <Button variant="ghost" onClick={onReset}>
               <Icon name="refresh" size={14} /> Sıfırla
             </Button>
-            {isRunning && (
+            {isRunning && mode !== "stopwatch" && (
               <Button variant="ghost" onClick={onSkip}>
                 <Icon name="skip" size={14} /> Atla
               </Button>
@@ -272,6 +338,21 @@ function PomodoroPage() {
     </div>
   );
 }
+
+const customInputStyle = {
+  width: 60,
+  background: "#0a0a0c",
+  border: "1px solid #27272a",
+  borderRadius: 8,
+  color: "#fafafa",
+  fontSize: 20,
+  fontWeight: 700,
+  textAlign: "center",
+  padding: "8px 4px",
+  fontFamily: "inherit",
+  fontVariantNumeric: "tabular-nums",
+  outline: "none",
+};
 
 const AMBIENT_TRACKS = [
   { id: "off",      label: "Sessiz",     icon: "x",     color: "#71717a" },
